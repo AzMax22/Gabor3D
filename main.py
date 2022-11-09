@@ -12,9 +12,9 @@ class Gabor3D:
         :param w: пространственная частота  ????????????
         :param sigma: ско функции Гаусса ?????????????? (по идее зависит от size)
         """
-        sigma_x = 2/3 * sigma
+        sigma_x = sigma
         sigma_y =  sigma
-        sigma_t = 2/3 * sigma
+        sigma_t = 1/10 * sigma
 
         radius = size // 2
         array_axis = range( -radius, radius + 1)
@@ -56,7 +56,7 @@ class Gabor3D:
 
 def show_filter3D(filter3D, along_axis_show = "t"):
     size_filter = filter3D.shape[0]
-    size_ax_x = 5
+    size_ax_x = 10
     size_ax_y = size_filter // size_ax_x  + 1
     fig, axes = plt.subplots(size_ax_y, size_ax_x)
 
@@ -108,7 +108,7 @@ def main():
 
     cap = cv2.VideoCapture("test.avi")
 
-    n = 5  # глубина блока изб и фильтра, должна быть нечетной
+    n = 15  # глубина блока изб и фильтра, должна быть нечетной
 
     ret, img = cap.read()
     block_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -119,9 +119,9 @@ def main():
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         block_img = np.dstack((block_img, gray_img))
 
-    gabor_filter = Gabor3D(size=n, theta=0, w_t0=0.2, w=0.2, sigma=0.3)
+    gabor_filter = Gabor3D(size=n, theta=0, w_t0=0.2, w=0.24, sigma=2.1)
 
-    show_filter3D(gabor_filter.odd_filter, "t")
+    show_filter3D(gabor_filter.odd_filter, "y")
 
     while True:
 
@@ -129,8 +129,8 @@ def main():
 
         print([np.min(res_img), np.max(res_img)], res_img.dtype)
         cv2.imshow("res", res_img)
-        #new = (res_img * (255 / np.max(res_img))).astype(np.uint8)
-        #cv2.imshow("lin_res", new)
+        new = (res_img * (255 / np.max(res_img))).astype(np.uint8)
+        cv2.imshow("lin_res", new)
 
         # обновляем блок изб
         ret, img = cap.read()
@@ -170,7 +170,6 @@ def main():
 
         if k == ord('q'):
             break
-
 
 
 if __name__ == '__main__':
