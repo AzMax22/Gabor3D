@@ -12,9 +12,9 @@ class Gabor3D:
         :param w: пространственная частота  ????????????
         :param sigma: ско функции Гаусса ?????????????? (по идее зависит от size)
         """
-        sigma_x = sigma
-        sigma_y = sigma
-        sigma_t = sigma
+        sigma_x = 2/3 * sigma
+        sigma_y =  sigma
+        sigma_t = 2/3 * sigma
 
         radius = size // 2
         array_axis = range( -radius, radius + 1)
@@ -56,7 +56,7 @@ class Gabor3D:
 
 def show_filter3D(filter3D, along_axis_show = "t"):
     size_filter = filter3D.shape[0]
-    size_ax_x = 10
+    size_ax_x = 5
     size_ax_y = size_filter // size_ax_x  + 1
     fig, axes = plt.subplots(size_ax_y, size_ax_x)
 
@@ -68,9 +68,9 @@ def show_filter3D(filter3D, along_axis_show = "t"):
         if along_axis_show == "t":
             g_2d = filter3D[:, :, i]
         elif along_axis_show == "x":
-            g_2d = filter3D[i, :, :]
-        elif along_axis_show == "y":
             g_2d = filter3D[:, i, :]
+        elif along_axis_show == "y":
+            g_2d = filter3D[i, :, :]
 
         ax = axes[y][x]
         ax.imshow(g_2d, cmap=plt.gray())
@@ -103,59 +103,73 @@ def show_images(list_img, names, size_ax_x):
         print(names[i], "=", [np.min(img), np.max(img)], img.dtype)
     plt.show()
 
+
 def main():
 
     cap = cv2.VideoCapture("test.avi")
 
-    n = 15  # глубина блока изб и фильтра, должна быть нечетной
+    n = 5  # глубина блока изб и фильтра, должна быть нечетной
 
     ret, img = cap.read()
     block_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # создаем блок изб
-    for i in range(n-1):
+    for i in range(n - 1):
         ret, img = cap.read()
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         block_img = np.dstack((block_img, gray_img))
 
-    gabor_filter = Gabor3D(size=n, theta=0, w_t0=0.4, w=0.24, sigma=2.1)
+    gabor_filter = Gabor3D(size=n, theta=0, w_t0=0.2, w=0.2, sigma=0.3)
 
     show_filter3D(gabor_filter.odd_filter, "t")
 
-    res_img = gabor_filter.filtered(block_img)
+    while True:
 
-    cv2.imshow("res1", res_img)
-    new = (res_img * (255/np.max(res_img))).astype(np.uint8)
-    cv2.imshow("res",new)
-
-    """# параметры для банка фильтров
-    w = 0.4
-    sigma = 0.5
-    list_w_t0 = [0.15, 0.3, 0.45]
-    list_theta = [0, np.pi/3, 2*np.pi/3]
-    bank_filter = []
-
-    # создание банка фильтров
-    for w_t0 in list_w_t0:
-        for theta in list_theta:
-            gabor_filter = Gabor3D(size=n, theta=theta, w_t0=w_t0, w=w, sigma=sigma)
-            bank_filter.append(gabor_filter)
-
-    show_filter3D(bank_filter[2].odd_filter, "y")
-
-    # применяем банк фильтров
-    list_res_img = []
-    for gabor_filter in bank_filter:
         res_img = gabor_filter.filtered(block_img)
-        list_res_img.append(res_img)
 
-    names = [f"theta_{j+1}, w_t0_{i+1}" for i in range(3) for j in range(3)]
-    show_images(list_res_img, names, 3)
+        print([np.min(res_img), np.max(res_img)], res_img.dtype)
+        cv2.imshow("res", res_img)
+        #new = (res_img * (255 / np.max(res_img))).astype(np.uint8)
+        #cv2.imshow("lin_res", new)
 
-    #cv2.imshow("1", list_res_img[1])"""
+        # обновляем блок изб
+        ret, img = cap.read()
+        gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        block_img = np.dstack((np.delete(block_img, 0, 2), gray_img))
 
-    if cv2.waitKey(0) == ord('q'):
-        pass
+        """# параметры для банка фильтров
+        w = 0.4
+        sigma = 0.5
+        list_w_t0 = [0.15, 0.3, 0.45]
+        list_theta = [0, np.pi/3, 2*np.pi/3]
+        bank_filter = []
+    
+        # создание банка фильтров
+        for w_t0 in list_w_t0:
+            for theta in list_theta:
+                gabor_filter = Gabor3D(size=n, theta=theta, w_t0=w_t0, w=w, sigma=sigma)
+                bank_filter.append(gabor_filter)
+    
+        show_filter3D(bank_filter[2].odd_filter, "y")
+    
+        # применяем банк фильтров
+        list_res_img = []
+        for gabor_filter in bank_filter:
+            res_img = gabor_filter.filtered(block_img)
+            list_res_img.append(res_img)
+    
+        names = [f"theta_{j+1}, w_t0_{i+1}" for i in range(3) for j in range(3)]
+        show_images(list_res_img, names, 3)
+    
+        #cv2.imshow("1", list_res_img[1])"""
+
+        k = cv2.waitKey(1)
+
+        if k == ord('w'):
+            pass
+
+        if k == ord('q'):
+            break
 
 
 
