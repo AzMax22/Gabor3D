@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt # package for plot function
+import matplotlib.pyplot as plt  # package for plot function
 
 
 class Gabor3D:
@@ -26,22 +26,14 @@ class Gabor3D:
         w_x0 = w * np.cos(theta)
         w_y0 = w * np.sin(theta)
 
-        coef = 10 / ( (2 * np.pi)**(3/2) * sigma_t * sigma_x * sigma_y)  # коэффициент
+        coef = 5 / ( (2 * np.pi)**(3/2) * sigma_t * sigma_x * sigma_y)  # коэффициент
 
         gauss_func = np.exp(- 0.5 * ((t**2)/(sigma_t**2) + (y**2)/(sigma_y**2) + (x**2)/(sigma_x**2)))  # функция гаусса
 
         arg = 2 * np.pi * (w_x0*x + w_y0*y + w_t0*t)  # аргумент cos или sin
 
-        #scale_coef = 50
-        self.even_filter = coef * gauss_func * np.cos(arg)
-        self.odd_filter = coef * gauss_func * np.sin(arg)
-        sum_even_filter = self.even_filter.sum()
-        #sum_odd_filter1 = self.odd_filter.sum()
-        #z = (coef * gauss_func).sum()
-        #s = np.sqrt(self.even_filter**2 + self.odd_filter**2).sum()
-
-        #self.even_filter /= scale_coef * sum_even_filter
-        #self.odd_filter /= scale_coef * sum_even_filter
+        self.even_filter = (coef * gauss_func * np.cos(arg)).astype(np.float32)
+        self.odd_filter = (coef * gauss_func * np.sin(arg)).astype(np.float32)
 
 
 
@@ -58,12 +50,10 @@ class Gabor3D:
 
     def filtered(self, img_blocks):
         odd_img = self._convolution3D(img_blocks, self.odd_filter)
-        #print(odd_img[463][11])
         even_img = self._convolution3D(img_blocks, self.even_filter)
-        #print(even_img[463][11])
+
         res_ing = odd_img**2 + even_img**2
         res_ing[res_ing > 255] = 255
-        #print(res_ing[463][11])
         return res_ing.astype(np.uint8)
 
 
@@ -126,7 +116,6 @@ def main():
     cap = cv2.VideoCapture("test.avi") #Video_37 test capture-2
 
     n = 7  # глубина блока изб и фильтра, должна быть нечетной
-    n_blur = 1
 
     block_img = []
 
@@ -134,55 +123,50 @@ def main():
     for i in range(n):
         ret, img = cap.read()
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        gray_img = cv2.GaussianBlur(gray_img, (n_blur, n_blur), 0)  # размытие по гауссу
-        #cv2.imshow("lin_res", gray_img)
-        k = cv2.waitKey(0)
         block_img.append(gray_img)
     block_img = np.stack(block_img, axis=0)
 
-    gabor_filter = Gabor3D(size_xy=25, size_deep=n, theta=np.radians(0), w_t0=1/9, w=1/4, sigma_xy=4, sigma_t=1)
+    # параметры для банка фильтров
+    list_w_t0 = [1/7, 1/8, 1/9]
+    list_theta = [np.radians(0), np.radians(35), np.radians(75)]
+    bank_filter = []
 
-    #show_filter3D(gabor_filter.even_filter, [10, 5], "xt")
+    # создание банка фильтров
+    for w_t0 in list_w_t0:
+        for theta in list_theta:
+            gabor_filter = Gabor3D(size_xy=25, size_deep=n, theta=theta, w_t0=w_t0, w=1/4, sigma_xy=4, sigma_t=1)
+            bank_filter.append(gabor_filter)
+
 
     while True:
-        res_img = gabor_filter.filtered(block_img)
-
-        print([np.min(res_img), np.max(res_img)], res_img.dtype)
-        cv2.imshow("res", res_img)
-        new = (res_img * (255 / np.max(res_img))).astype(np.uint8)
-        #cv2.imshow("lin_res", new)
-
-        # обновляем блок изб
-        ret, img = cap.read()
-        gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        gray_img = cv2.GaussianBlur(gray_img, (n_blur, n_blur), 0)  # размытие по гауссу
-        block_img = np.concatenate((np.delete(block_img, 0, 0), gray_img[None, :]))
-
-        """# параметры для банка фильтров
-        w = 0.4
-        sigma = 0.5
-        list_w_t0 = [0.15, 0.3, 0.45]
-        list_theta = [0, np.pi/3, 2*np.pi/3]
-        bank_filter = []
-    
-        # создание банка фильтров
-        for w_t0 in list_w_t0:
-            for theta in list_theta:
-                gabor_filter = Gabor3D(size=n, theta=theta, w_t0=w_t0, w=w, sigma=sigma)
-                bank_filter.append(gabor_filter)
-    
-        show_filter3D(bank_filter[2].odd_filter, "y")
-    
         # применяем банк фильтров
         list_res_img = []
         for gabor_filter in bank_filter:
             res_img = gabor_filter.filtered(block_img)
             list_res_img.append(res_img)
-    
-        names = [f"theta_{j+1}, w_t0_{i+1}" for i in range(3) for j in range(3)]
-        show_images(list_res_img, names, 3)
-    
-        #cv2.imshow("1", list_res_img[1])"""
+
+        # удаление шума
+        for img in list_res_img:
+            std = np.std(img)
+            img[img < std] = 0
+
+        # объединение изображений после фильтрации
+        list_res_img = np.stack(list_res_img, axis=0)
+        count_nonzero = np.count_nonzero(list_res_img, axis=0)
+        mask = count_nonzero > 4
+
+        sum_ax_0 = np.sum(list_res_img, axis=0, where=mask)
+        blobs = np.divide(sum_ax_0, count_nonzero, where=mask).astype(np.uint8)
+        _, blobs = cv2.threshold(blobs, 80, 255, cv2.THRESH_BINARY)
+
+
+        cv2.imshow("mask",blobs)
+
+
+        # обновляем блок изб
+        ret, img = cap.read()
+        gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        block_img = np.concatenate((np.delete(block_img, 0, 0), gray_img[None, :]))
 
         k = cv2.waitKey(1)
 
